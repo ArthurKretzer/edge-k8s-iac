@@ -1,4 +1,4 @@
-# OLIMPO IaC with Terraform
+# Edge K8s IaC with Terraform
 
 This repo is intended to be our Infrastructure-as-Code (IaC). Following sections will describe how to use it.
 
