@@ -14,7 +14,7 @@ This guide provides step-by-step instructions for installing Terraform, installi
 
 To install Terraform, follow these steps:
 
-### On Ubuntu/Debian:
+### On Ubuntu/Debian
 
 1. **Update the package list:**
 
@@ -105,7 +105,7 @@ This will apply the changes defined in your Terraform configuration using the va
 
 ## Cloud-init template configuration
 
-You should download a cloud-init ready image such as form https://cloud-images.ubuntu.com.
+You should download a cloud-init ready image such as form <https://cloud-images.ubuntu.com>.
 
 For this example focal-server-cloudimg-amd64.img was used (Ubuntu 20.04 LTS).
 
