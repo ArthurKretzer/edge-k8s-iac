@@ -1,177 +1,185 @@
 # Edge K8s IaC with Terraform
 
-This repo is intended to be our Infrastructure-as-Code (IaC). Following sections will describe how to use it.
+This repository contains the Infrastructure-as-Code (IaC) configuration for provisioning a Kubernetes (K3s) cluster on Proxmox VE using Terraform. It automates the creation of virtual machines and the deployment of a K3s cluster, including master and worker nodes.
 
-## Kubernetes Architecture
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Cloud-Init Template](#cloud-init-template-configuration)
+
+## Architecture
 
 ![k8s-architecture](./images/kubernetes-architecture.png)
 
-## Terraform Setup and Execution Guide
+The infrastructure consists of:
 
-This guide provides step-by-step instructions for installing Terraform, installing the required providers for this project, and executing the Terraform configuration with a `secret.tfvars` file.
+- **Proxmox VE**: The virtualization platform.
+- **Terraform**: The tool for provisioning infrastructure.
+- **K3s**: A lightweight Kubernetes distribution.
+- **Ubuntu 20.04**: The base operating system for the nodes.
 
-## 1. Install Terraform
+## Prerequisites
 
-To install Terraform, follow these steps:
+Before you begin, ensure you have the following:
 
-### On Ubuntu/Debian
+- **Proxmox VE 7.x/8.x** cluster or standalone node.
+- **Terraform v1.0+** installed on your local machine.
+- **SSH Access** to the Proxmox server.
+- A **Cloud-Init ready Ubuntu 20.04 image** template on Proxmox.
 
-1. **Update the package list:**
+## Installation
+
+### Install Terraform
+
+#### Ubuntu/Debian
+
+1. **Update package list and install dependencies:**
 
     ```bash
     sudo apt-get update && sudo apt-get install -y gnupg software-properties-common curl
     ```
 
-2. **Add HashiCorp’s official GPG key:**
+2. **Add HashiCorp's GPG key:**
 
     ```bash
     curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
     ```
 
-3. **Add the HashiCorp Linux repository:**
+3. **Add the HashiCorp repository:**
 
     ```bash
-        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
     ```
 
-4. **Update the package list again and install Terraform:**
+4. **Install Terraform:**
 
     ```bash
     sudo apt-get update && sudo apt-get install terraform
     ```
 
-5. **Verify the installation:**
+5. **Verify installation:**
 
     ```bash
     terraform -v
     ```
 
-## Initialize the projet
+### Initialize Project
 
-This will download and install the required providers specified in your Terraform configuration.
+Initialize Terraform to download the required providers:
 
 ```bash
 terraform init
 ```
 
-## Create the secret.tfvars File
+## Configuration
 
-The secret.tfvars file should contain sensitive information such as access keys, passwords, or tokens. Here’s an example of how to structure the secret.tfvars file:
+Create a `secret.tfvars` file in the root directory to store sensitive information. **Do not commit this file to version control.**
 
-```tfvars
-proxmox_api_token_id     = "user@local"
-proxmox_api_token_secret = "an-incredible-token"
-ssh_user                 = "you"
-ssh_port                 = 2245
-cipassword               = "an-incredibly-secure-password"
-new_cluster_name         = "new-cluster-name"
+**Example `secret.tfvars`:**
+
+```hcl
+proxmox_api_token_id     = "user@pam!token_id"
+proxmox_api_token_secret = "your-api-token-secret"
+ssh_user                 = "ubuntu"
+ssh_port                 = "22"
+cipassword               = "secure-vm-password"
+new_cluster_name         = "my-k3s-cluster"
 ```
 
-The ssh_user should be on VM templates sudoers.
+### Variables Description
 
-Save this file as secret.tfvars in your project directory.
+| Variable | Description |
+| :--- | :--- |
+| `proxmox_api_token_id` | Proxmox API Token ID (e.g., `user@pam!token`). |
+| `proxmox_api_token_secret` | Proxmox API Token Secret. |
+| `ssh_user` | SSH user for the VMs (must be in sudoers). |
+| `ssh_port` | SSH port for the VMs (usually 22). |
+| `cipassword` | Password for the `ssh_user` (set via Cloud-Init). |
+| `new_cluster_name` | Name of the Kubernetes cluster. |
 
 ### Proxmox API Token
 
-To generate API tokens and secrets for proxmox you should follow this steps via [CLI](https://pve.proxmox.com/wiki/Proxmox_VE_API#Ticket_Cookie) or via [UI](https://www.youtube.com/watch?v=wK8PUp7rjzs).
+To generate an API token:
 
-Your proxmox user should have full access for creating and configuring VMs on the datacenter as well as your API Token.
+1. Go to **Datacenter > Permissions > API Tokens**.
+2. Click **Add**.
+3. Select the user and enter a Token ID.
+4. Uncheck "Privilege Separation" if necessary (depends on your permissions setup).
+5. Copy the Secret immediately.
 
-NOTE: Unchecking "Privilege Separation" was necessary for my case.
+## Usage
 
-## Execute Terraform with the secret.tfvars File
+### Plan Infrastructure
 
-Now that Terraform is installed, the providers are initialized, and the secret.tfvars file is created, you can execute your Terraform configuration.
+Preview the changes Terraform will make:
 
-1. **Run a Terraform plan to see the changes that will be made:**
+```bash
+terraform plan -var-file="secret.tfvars"
+```
+
+### Apply Configuration
+
+Provision the infrastructure:
+
+```bash
+terraform apply -var-file="secret.tfvars"
+```
+
+### Destroy Infrastructure
+
+To tear down the infrastructure:
+
+```bash
+terraform destroy -var-file="secret.tfvars"
+```
+
+## Cloud-Init Template Configuration
+
+To create the base template required by this project:
+
+1. **Download the image** (on Proxmox host):
 
     ```bash
-    terraform plan -var-file="secret.tfvars"
+    wget https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img
     ```
 
-2. **Apply the Terraform configuration:**
+2. **Create a VM:**
 
     ```bash
-    terraform apply -var-file="secret.tfvars"
+    # Create VM ID 9000
+    qm create 9000 --memory 2048 --net0 virtio,bridge=vmbr0 --scsihw virtio-scsi-pci
+    
+    # Import disk
+    qm set 9000 --virtio0 local-zfs:0,import-from=/root/focal-server-cloudimg-amd64.img
+    
+    # Add Cloud-Init drive
+    qm set 9000 --ide2 local-zfs:cloudinit
+    
+    # Set boot order
+    qm set 9000 --boot order=virtio0
+    
+    # Set BIOS to UEFI (optional, but recommended for modern setups)
+    qm set 9000 --bios ovmf
     ```
 
-This will apply the changes defined in your Terraform configuration using the variables from secret.tfvars.
+3. **Install QEMU Guest Agent:**
 
-## Notes
+    Start the VM, install the agent, and shut it down.
 
-* Always store the secret.tfvars file securely and add it to your .gitignore to prevent sensitive information from being committed to version control.
+    ```bash
+    sudo apt-get update
+    sudo apt-get install qemu-guest-agent
+    ```
 
-* When finished, you can use terraform destroy -var-file="secret.tfvars" to remove the infrastructure created by Terraform.
+4. **Convert to Template:**
 
-## Cloud-init template configuration
+    ```bash
+    qm template 9000
+    ```
 
-You should download a cloud-init ready image such as form <https://cloud-images.ubuntu.com>.
-
-For this example focal-server-cloudimg-amd64.img was used (Ubuntu 20.04 LTS).
-
-Access proxmox server via SSH and download the image.
-
-```bash
-# download the image
-wget https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img
-
-# Convert it to qcow2
-qemu-img convert -f qcow2 -O qcow2 focal-server-cloudimg-amd64.img focal-server-cloudimg-amd64.qcow2
-
-# create a new VM with VirtIO SCSI controller
-qm create 9000 --memory 2048 --net0 virtio,bridge=vmbr0 --scsihw virtio-scsi-pci
-
-# import the downloaded disk to the local-lvm storage, attaching it as a virtio drive
-# Must use the full file path
-qm set 9000 --virtio0 local-zfs:0,import-from=/root/focal-server-cloudimg-amd64.qcow2
-```
-
-**OBS: Ubuntu Cloud-Init images require the virtio-scsi-pci controller type for SCSI drives.**
-
-The next step is to configure a CD-ROM drive, which will be used to pass the Cloud-Init data to the VM.
-
-```bash
-qm set 9000 --ide2 local-zfs:cloudinit
-```
-
-To be able to boot directly from the Cloud-Init image, set the boot parameter to order=virtio0 to restrict BIOS to boot from this disk only. This will speed up booting, because VM BIOS skips the testing for a bootable CD-ROM.
-
-```bash
-qm set 9000 --boot order=virtio0
-```
-
-Finally set BIOS to UEFI
-
-```bash
-qm set 9000 --bios ovmf
-```
-
-Then you can run the vm to test the boot. If it boots, then you can set an user and an ip-address using cloud-init. Redefine the image and then stop it, run it again.
-
-You will want to install qemu-guest-agent using:
-
-```bash
-sudo apt-get install qemu-guest-agent
-```
-
-Now you can enable the VM qemu agent via proxmox. If you stop the VM and run it again, qemu agent will start and show IP address.
-
-Now you will be able to shutdown the VM and execute other proxmox commands.
-
-Finally you can exit the VM, reset the user and IP address, redefine the cloud image and then you can transform it on a template.
-
-```bash
-qm template 9000
-```
-
-### Undo template
-
-If you want to modify the template you will need to undo it manually.
-
-One way is to enter the proxmox server and find your template ID configuration file like /etc/pve/qemu-server/<\template-id>.conf
-
-Then you can edit it with nano and delete the whole line with the key value pair "template: 1"
-
-Save the file and you will soon see the template turn back into a VM.
-
-Then you can start it and do the necessary modifications.
+---
+**Note:** Ensure your `main.tf` references the correct template name (`clone` parameter) and target node.
